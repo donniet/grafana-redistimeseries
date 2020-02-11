@@ -5,6 +5,7 @@ import redis
 import flask
 from datetime import timedelta, datetime
 import dateutil.parser
+import dateutil.tz
 from gevent.pywsgi import WSGIServer
 from flask import Flask, jsonify
 from flask_cors import CORS, cross_origin
@@ -12,7 +13,7 @@ from flask_cors import CORS, cross_origin
 app = Flask(__name__)
 CORS(app)
 
-EPOCH = datetime(1970, 1, 1, 0, 0, 0)
+EPOCH = datetime(1970, 1, 1, 0, 0, 0, tzinfo=dateutil.tz.tzutc())
 
 REDIS_POOL = None
 SCAN_TYPE_SCRIPT = """local cursor, pat, typ, cnt = ARGV[1], ARGV[2], ARGV[3], ARGV[4] or 100
@@ -70,6 +71,7 @@ def query():
     etime = (dateutil.parser.parse(request['range']['to']) - EPOCH) / timedelta(milliseconds=1)
 
     redis_client = redis.Redis(connection_pool=REDIS_POOL)
+
     targets = process_targets([t['target'] for t in request['targets']], redis_client)
 
     for target in targets:
@@ -80,6 +82,7 @@ def query():
         redis_resp = redis_client.execute_command(*args)
         datapoints = [(float(x2.decode("ascii")), x1) for x1, x2 in redis_resp]
         response.append(dict(target=target, datapoints=datapoints))
+    
     return jsonify(response)
 
 
